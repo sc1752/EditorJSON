@@ -2,6 +2,7 @@ import wx
 import wx.dataview as DV
 import re
 import json
+import util
 
 class TreeItemDataType():
     Null = 0
@@ -43,7 +44,7 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
         self.ValueInputField = wx.TextCtrl(self)
         if values and values[2]:
             if self.ValueTypeSelect.GetSelection() == TreeItemDataType.String or self.ValueTypeSelect.GetSelection() == TreeItemDataType.Number:
-                self.ValueInputField.SetValue(str(values[2]))
+                self.ValueInputField.SetValue(values[2])
 
         self.ValueInputField.Bind(wx.EVT_TEXT, self.ValidateValue)
 
@@ -102,7 +103,7 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
             if not re.match(r'^-?\d+\.?\d*$', self.ValueInputField.GetValue()):
                 isValid = False
         elif selection == TreeItemDataType.Boolean:
-            if not re.match(r'^true|false|True|False$', self.ValueInputField.GetValue()):
+            if not re.match(r'^true|false|True|False|t|f|T|F$', self.ValueInputField.GetValue()):
                 isValid = False
         
         if not isValid:
@@ -114,7 +115,7 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
     
     def GetDialogueValues(self):
         """
-        return user input values in the form or a 3-tuple (key, value type, value)
+        return user input values in the form or a key value pair (key, value)
         """
         selection = self.ValueTypeSelect.GetSelection()
         
@@ -122,12 +123,17 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
 
         value = self.ValueInputField.GetValue()
         if selection == TreeItemDataType.Array:
-            value = r"[]"
+            value = []
         elif selection == TreeItemDataType.Object:
-            value = r"{}"
+            value = {}
         elif selection == TreeItemDataType.Null:
-            value = "null"
-        return(key, selection, value)
+            value = None
+        elif selection == TreeItemDataType.Boolean:
+            value = value.lower() in ['true' , 't']
+        elif selection == TreeItemDataType.Boolean:
+            value = util.to_number(value)
+
+        return (key, value)
 
 
 class JSONTreeView(DV.TreeListCtrl):
@@ -155,7 +161,7 @@ class JSONTreeView(DV.TreeListCtrl):
             if type(JSON_Object) == dict:
                 if tree_parent != self.GetRootItem():
                     key = self.GetItemText(tree_parent)
-                    self.SetRowText(tree_parent, (key, TreeItemDataType.Object, r'{}'))
+                    self.SetRow(tree_parent, key, JSON_Object)
                 for key in JSON_Object:
                     tree_item = self.AppendItem(tree_parent, key)
                     
@@ -163,15 +169,14 @@ class JSONTreeView(DV.TreeListCtrl):
                     self.BuildTreeViewFromJSONDataRecursively(value, tree_item)
             elif type(JSON_Object) == list:
                 key = self.GetItemText(tree_parent)
-                self.SetRowText(tree_parent, (key, TreeItemDataType.Array, '[]'))
+                self.SetRow(tree_parent,  key, JSON_Object)
                 for array_item in JSON_Object:
                     array_tree_item = self.AppendItem(tree_parent, "")
                     self.BuildTreeViewFromJSONDataRecursively(array_item, array_tree_item)
                 self.UpdateArrayItemChildrenIndex(tree_parent)
             else: #End of chain
                 key = self.GetItemText(tree_parent)
-                item_type = TreeItemDataType.GetTypeIndex(JSON_Object)
-                self.SetRowText(tree_parent, (key, item_type, str(JSON_Object)))
+                self.SetRow(tree_parent, key, JSON_Object)
 
 
 
@@ -217,31 +222,32 @@ class JSONTreeView(DV.TreeListCtrl):
         if parent_type and parent_type == TreeItemDataType.Array:
             show_key = False
             
-        dlg = EditJSONTreeItemDiaglogueWindow(frame, showKey=show_key, values=current_values)
+        dlg = EditJSONTreeItemDiaglogueWindow(self, showKey=show_key, values=current_values)
         if dlg.ShowModal() == wx.ID_OK:
-            new_values = dlg.GetDialogueValues()
-            self.SetRowText(self.activated, new_values)
+            (key, value) = dlg.GetDialogueValues()
+            self.SetRow(self.activated, key, value)
             if not show_key:
                 self.UpdateArrayItemChildrenIndex(parent)
 
     def UpdateArrayItemChildrenIndex(self, item):
         index = 0
-        if item and self.GetItemData(item) == TreeItemDataType.Array:
+        if item and TreeItemDataType.GetTypeIndex(self.GetItemData(item)) == TreeItemDataType.Array:
             current = self.GetFirstChild(item)
             while current:
                 self.SetItemText(current, text=str(index))
                 current = self.GetNextSibling(current)
                 index += 1
 
-
-
     def GetValuesFromRow(self, item):
-
+        """
+        Extract values from row returns 3-tupple pair (key, value type, value)
+        """
         values = None
         if item:
             key = self.GetItemText(item)
-            value_type = self.GetItemData(item)
-            value = self.GetItemText(item, 1)
+            value = self.GetItemData(item)
+            value_type = TreeItemDataType.GetTypeIndex(value)
+
             if not value_type or type(value_type) is not int:
                 value_type = TreeItemDataType.String
             values = (key, value_type, value)
@@ -252,18 +258,15 @@ class JSONTreeView(DV.TreeListCtrl):
         parent = self.GetItemParent(self.activated)
         parent_data_type = None
         if parent:
-            parent_data_type = self.GetItemData(parent)
+            parent_data_type = TreeItemDataType.GetTypeIndex(self.GetItemData(parent))
         
         return parent_data_type
 
-    def SetRowText(self, item, values, override_key=None):
+    def SetRow(self, item, key, value, override_key=None):
         """
-        Populate values gathered from edit item dialogue
+        Set item text as well as item data to specific TreeListCtrlItem
         """
-        if item and values and len(values) == 3:
-            key = values[0]
-            type = values[1]
-            value = values[2]
+        if item:
             if key == None:
                 key = ""
 
@@ -271,8 +274,17 @@ class JSONTreeView(DV.TreeListCtrl):
                 self.SetItemText(item, str(override_key))
             else:
                 self.SetItemText(item, str(key))
-            self.SetItemText(item, 1, value)
-            self.SetItemData(item, type)
+
+            value_text = str(value)
+            if TreeItemDataType.GetTypeIndex(value) == TreeItemDataType.Array:
+                value = []
+                value_text = r'[]'
+            elif TreeItemDataType.GetTypeIndex(value) == TreeItemDataType.Object:
+                value = {}
+                value_text = r'{}'
+            self.SetItemText(item, 1, value_text)
+            self.SetItemData(item, value)
+
 
     def OnDeleteItem(self):
 
@@ -284,19 +296,18 @@ class JSONTreeView(DV.TreeListCtrl):
     def OnAppendChild(self):
 
         if self.activated:
-            data_type = self.GetItemData(self.activated)
+            data_type = TreeItemDataType.GetTypeIndex(self.GetItemData(self.activated))
 
             if (data_type and (data_type == TreeItemDataType.Object or data_type == TreeItemDataType.Array)) or self.GetRootItem() == self.activated:
 
                 show_key = not data_type == TreeItemDataType.Array
 
-
-                dlg = EditJSONTreeItemDiaglogueWindow(frame, show_key)
+                dlg = EditJSONTreeItemDiaglogueWindow(self, show_key)
                 if dlg.ShowModal() == wx.ID_OK:
-                    new_values = dlg.GetDialogueValues()
-                    
+                    (key, value) = dlg.GetDialogueValues()
+
                     new_item = self.AppendItem(self.activated, "")
-                    self.SetRowText(new_item, new_values)
+                    self.SetRow(new_item, key, value)
                     if not show_key:
                         self.UpdateArrayItemChildrenIndex(self.activated)
 
@@ -307,54 +318,55 @@ class JSONTreeView(DV.TreeListCtrl):
                 dlg.ShowModal()
 
 
+
     def OnInsert(self):
         if self.activated and self.activated != self.GetRootItem():
             parent_data_type = self.GetParentDataType(self.activated)
             show_key = not(parent_data_type and parent_data_type == TreeItemDataType.Array)
             
-            dlg = EditJSONTreeItemDiaglogueWindow(frame, show_key)
+            dlg = EditJSONTreeItemDiaglogueWindow(self, show_key)
             if dlg.ShowModal() == wx.ID_OK:
-                new_values = dlg.GetDialogueValues()
+                (key, value) = dlg.GetDialogueValues()
 
                 parent = self.GetRootItem()
                 if self.activated:
                     parent = self.GetItemParent(self.activated)
                     new_item = self.InsertItem(parent, self.activated, "")
 
-                    self.SetRowText(new_item, new_values)
+                    self.SetRow(new_item, key, value)
                     if not show_key:
                         self.UpdateArrayItemChildrenIndex(parent)
                     self.Select(new_item)
 
                 
 
-# class MyFrame(wx.Frame):
-#     def __init__(self, parent):
-#         wx.Frame.__init__(self, parent, -1, "Test")
-#         panel = wx.Panel(self)
+class MyFrame(wx.Frame):
+    def __init__(self, parent):
+        wx.Frame.__init__(self, parent, -1, "Test")
+        panel = wx.Panel(self)
 
 
-#         self.tree = JSONTreeView(panel)
+        self.tree = JSONTreeView(panel)
 
-#         sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer = wx.BoxSizer(wx.VERTICAL)
  
-#         sizer.Add(self.tree, 1, wx.EXPAND)
-#         panel.SetSizer(sizer)
+        sizer.Add(self.tree, 1, wx.EXPAND)
+        panel.SetSizer(sizer)
 
-#         file = open('sample.json')
-#         data = json.load(file)
-#         print(data)
-#         self.tree.UpdateTreeViewFromJSONData(data)
-
-
+        file = open('sample.json')
+        data = json.load(file)
+        print(data)
+        self.tree.UpdateTreeViewFromJSONData(data)
 
 
 
 
-# if __name__ == '__main__':
-#     app = wx.App(False)
-#     frame = MyFrame(None)
-#     frame.Show()
 
-#     app.MainLoop()
+
+if __name__ == '__main__':
+    app = wx.App(False)
+    frame = MyFrame(None)
+    frame.Show()
+
+    app.MainLoop()
 
