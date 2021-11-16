@@ -2,6 +2,7 @@ import wx
 import wx.dataview as DV
 import re
 import json
+import copy
 import util
 
 class TreeItemDataType():
@@ -179,14 +180,55 @@ class JSONTreeView(DV.TreeListCtrl):
                 self.SetRow(tree_parent, key, JSON_Object)
 
 
-
-    def GenerateJSONData(self, JSON_Object):
+    def GenerateJSONData(self):
         """
-        Generate JSON data from the form
+        Generate JSON data from the values in 
         """
-        #TODO
-        return
+        JSON_root = {}
+        tree_root = self.GetRootItem()
+        self.GenerateJSONDataReCursively(tree_root, JSON_root)
+        return JSON_root
 
+    def GenerateJSONDataReCursively(self, tree_item_parent, JSON_root):
+        """
+        Traversing data stored in TreeListCtrl
+        """
+        parent = self.GetItemData(tree_item_parent)
+        current = self.GetFirstChild(tree_item_parent)
+
+        while current:
+            current_key = self.GetItemText(current)
+            current_value = copy.deepcopy(self.GetItemData(current))
+
+            if TreeItemDataType.GetTypeIndex(current_value) == TreeItemDataType.Object:
+                # depth first 
+                if TreeItemDataType.GetTypeIndex(JSON_root) == TreeItemDataType.Array:
+                    JSON_root.append(self.GenerateJSONDataReCursively(current, current_value))
+                else:
+                    JSON_root[current_key] = {}
+                    JSON_root[current_key] = self.GenerateJSONDataReCursively(current, JSON_root[current_key])
+            elif TreeItemDataType.GetTypeIndex(current_value) == TreeItemDataType.Array:
+                # breadth first
+                if TreeItemDataType.GetTypeIndex(JSON_root) == TreeItemDataType.Array:
+                    JSON_root.append(self.GenerateJSONDataReCursively(current, current_value))
+                else:
+                    JSON_root[current_key] = []
+                    current_array_item = self.GetFirstChild(current)
+                    while current_array_item:
+                        array_value = copy.deepcopy(self.GetItemData(current_array_item))
+                        JSON_root[current_key].append(self.GenerateJSONDataReCursively(current_array_item, array_value))
+                        current_array_item = self.GetNextSibling(current_array_item)
+            else:
+                if TreeItemDataType.GetTypeIndex(JSON_root) == TreeItemDataType.Array:
+                    JSON_root.append(current_value)
+                else:
+                    JSON_root[current_key] = current_value
+
+            current = self.GetNextSibling(current)
+
+        return JSON_root
+
+            
     def OnActivated(self, event: DV.TreeListEvent):
         self.activated = event.GetItem()
         
@@ -349,14 +391,21 @@ class MyFrame(wx.Frame):
         self.tree = JSONTreeView(panel)
 
         sizer = wx.BoxSizer(wx.VERTICAL)
- 
+        button = wx.Button(panel, label='test')
+        button.Bind(wx.EVT_BUTTON, self.test)
         sizer.Add(self.tree, 1, wx.EXPAND)
+        sizer.Add(button, 0)
         panel.SetSizer(sizer)
 
         file = open('sample.json')
         data = json.load(file)
-        print(data)
+        # print(data)
         self.tree.UpdateTreeViewFromJSONData(data)
+
+    def test(self, evt):
+        dict = self.tree.GenerateJSONData()
+        jsonagain = json.dumps(dict)
+        print(jsonagain)
 
 
 
