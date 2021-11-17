@@ -1,7 +1,6 @@
 import wx
 import wx.dataview as DV
 import re
-import json
 import copy
 import util
 
@@ -360,7 +359,6 @@ class JSONTreeView(DV.TreeListCtrl):
                 dlg.ShowModal()
 
 
-
     def OnInsert(self):
         if self.activated and self.activated != self.GetRootItem():
             parent_data_type = self.GetParentDataType(self.activated)
@@ -381,41 +379,3 @@ class JSONTreeView(DV.TreeListCtrl):
                     self.Select(new_item)
 
                 
-
-class MyFrame(wx.Frame):
-    def __init__(self, parent):
-        wx.Frame.__init__(self, parent, -1, "Test")
-        panel = wx.Panel(self)
-
-
-        self.tree = JSONTreeView(panel)
-
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        button = wx.Button(panel, label='test')
-        button.Bind(wx.EVT_BUTTON, self.test)
-        sizer.Add(self.tree, 1, wx.EXPAND)
-        sizer.Add(button, 0)
-        panel.SetSizer(sizer)
-
-        file = open('sample.json')
-        data = json.load(file)
-        # print(data)
-        self.tree.UpdateTreeViewFromJSONData(data)
-
-    def test(self, evt):
-        dict = self.tree.GenerateJSONData()
-        jsonagain = json.dumps(dict)
-        print(jsonagain)
-
-
-
-
-
-
-if __name__ == '__main__':
-    app = wx.App(False)
-    frame = MyFrame(None)
-    frame.Show()
-
-    app.MainLoop()
-
