@@ -18,3 +18,4 @@ class JSONTextView(stc.StyledTextCtrl):
         self.SetLexer(stc.STC_LEX_JSON)
 
         self.SetTabIndents(4)
+        self.WrapCount(1)

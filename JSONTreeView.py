@@ -44,7 +44,7 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
         self.ValueInputField = wx.TextCtrl(self)
         if values and values[2]:
             if self.ValueTypeSelect.GetSelection() == TreeItemDataType.String or self.ValueTypeSelect.GetSelection() == TreeItemDataType.Number:
-                self.ValueInputField.SetValue(values[2])
+                self.ValueInputField.SetValue(str(values[2]))
 
         self.ValueInputField.Bind(wx.EVT_TEXT, self.ValidateValue)
 
