@@ -19,3 +19,10 @@ class JSONTextView(stc.StyledTextCtrl):
 
         self.SetTabIndents(4)
         self.WrapCount(1)
+
+    def OnUndo(self, evt):
+        self.Undo()
+
+
+    def OnRedo(self, evt):
+        self.Redo()

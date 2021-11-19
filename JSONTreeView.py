@@ -28,8 +28,8 @@ class TreeItemDataType():
 
                 
 class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
-    def __init__(self, parent, showKey=True, values=None):
-        wx.Dialog.__init__(self, parent, title="Edit Json Object")
+    def __init__(self, parent, showKey=True, values=None, title="Edit Json Object"):
+        wx.Dialog.__init__(self, parent, title=title)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         self.ValueTypedLabel = wx.StaticText(self, label="Value Type")
@@ -142,10 +142,12 @@ class JSONTreeView(DV.TreeListCtrl):
         """"""
         DV.TreeListCtrl.__init__(self, parent, style=DV.TL_NO_HEADER|DV.TL_SINGLE)
         self.GetDataView().SetWindowStyle(DV.DV_VERT_RULES|DV.DV_HORIZ_RULES)
+        self.Bind(DV.EVT_TREELIST_SELECTION_CHANGED, self.OnSelected)
         self.Bind(DV.EVT_TREELIST_ITEM_ACTIVATED, self.OnActivated)
         self.Bind(DV.EVT_TREELIST_ITEM_CONTEXT_MENU, self.OnActivated)
         self.AppendColumn("Key")
         self.AppendColumn("Value")
+        self.activated = None
 
     def UpdateTreeViewFromJSONData(self, JSON_Object={}):
         """
@@ -154,6 +156,7 @@ class JSONTreeView(DV.TreeListCtrl):
         self.DeleteAllItems()
         tree_parent = self.GetRootItem()
         self.BuildTreeViewFromJSONDataRecursively(JSON_Object, tree_parent)
+        self.ExpandFirstLevelNodes()
 
     def BuildTreeViewFromJSONDataRecursively(self, JSON_Object, tree_parent):
         if tree_parent and JSON_Object:
@@ -227,7 +230,9 @@ class JSONTreeView(DV.TreeListCtrl):
 
         return JSON_root
 
-            
+    def OnSelected(self, event):
+        self.activated = event.GetItem()
+
     def OnActivated(self, event: DV.TreeListEvent):
         self.activated = event.GetItem()
         
@@ -244,26 +249,30 @@ class JSONTreeView(DV.TreeListCtrl):
     def ContextMenuItemHandler(self, event):
         ID = event.GetId()
         if ID == 1:
-            self.OnEditItem()
+            self.OnEditItem(event)
         elif ID == 2:
-            self.OnDeleteItem()
+            self.OnDeleteItem(event)
         elif ID == 3:
-            self.OnAppendChild()
+            self.OnAppendChild(event)
         elif ID == 4:
-            self.OnInsert()
+            self.OnInsert(event)
 
-    def OnEditItem(self):
+    def OnEditItem(self, event):
+
+        if not self.activated or self.activated == self.GetRootItem():
+            return
 
         current_values = self.GetValuesFromRow(self.activated)
 
         show_key = True
+        name_to_show = self.GetItemText(self.activated)
 
         parent = self.GetItemParent(self.activated)
         parent_type = self.GetParentDataType(self.activated)
         if parent_type and parent_type == TreeItemDataType.Array:
             show_key = False
             
-        dlg = EditJSONTreeItemDiaglogueWindow(self, showKey=show_key, values=current_values)
+        dlg = EditJSONTreeItemDiaglogueWindow(self, showKey=show_key, values=current_values, title="Edit %s" % name_to_show)
         if dlg.ShowModal() == wx.ID_OK:
             (key, value) = dlg.GetDialogueValues()
             self.SetRow(self.activated, key, value)
@@ -327,23 +336,35 @@ class JSONTreeView(DV.TreeListCtrl):
             self.SetItemData(item, value)
 
 
-    def OnDeleteItem(self):
+    def OnDeleteItem(self, event):
 
         if self.activated and self.activated != self.GetRootItem():
             parent = self.GetItemParent(self.activated)
             self.DeleteItem(self.activated)
             self.UpdateArrayItemChildrenIndex(parent)
     
-    def OnAppendChild(self):
+    def GetSelectedItemKey(self):
+        """Return the key of the selected item, return Root Item if nothing is selected."""
+        if self.activated:
+            if self.activated == self.GetRootItem():
+                return "Root Item"
+            else:
+                return self.GetItemText(self.activated)
+
+    def OnAppendChild(self, event):
+
+        if not self.activated:
+            self.activated = self.GetRootItem()
 
         if self.activated:
             data_type = TreeItemDataType.GetTypeIndex(self.GetItemData(self.activated))
 
-            if (data_type and (data_type == TreeItemDataType.Object or data_type == TreeItemDataType.Array)) or self.GetRootItem() == self.activated:
+            if (data_type and (data_type == TreeItemDataType.Object or data_type == TreeItemDataType.Array)) or self.activated == self.GetRootItem():
 
                 show_key = not data_type == TreeItemDataType.Array
 
-                dlg = EditJSONTreeItemDiaglogueWindow(self, show_key)
+                name_to_show = self.GetSelectedItemKey()
+                dlg = EditJSONTreeItemDiaglogueWindow(self, show_key, title="Insert new child item for %s" % name_to_show)
                 if dlg.ShowModal() == wx.ID_OK:
                     (key, value) = dlg.GetDialogueValues()
 
@@ -359,12 +380,15 @@ class JSONTreeView(DV.TreeListCtrl):
                 dlg.ShowModal()
 
 
-    def OnInsert(self):
+
+    def OnInsert(self, event):
+
         if self.activated and self.activated != self.GetRootItem():
             parent_data_type = self.GetParentDataType(self.activated)
             show_key = not(parent_data_type and parent_data_type == TreeItemDataType.Array)
             
-            dlg = EditJSONTreeItemDiaglogueWindow(self, show_key)
+            item_name = self.GetSelectedItemKey()
+            dlg = EditJSONTreeItemDiaglogueWindow(self, show_key, title="Insert sibling under %s" % item_name)
             if dlg.ShowModal() == wx.ID_OK:
                 (key, value) = dlg.GetDialogueValues()
 
@@ -377,5 +401,46 @@ class JSONTreeView(DV.TreeListCtrl):
                     if not show_key:
                         self.UpdateArrayItemChildrenIndex(parent)
                     self.Select(new_item)
+        else:
+            # Append to the root item
+            self.OnAppendChild(self.GetRootItem())
 
-                
+
+    def ExpandFirstLevelNodes(self):
+        """Function to expand children of the root item for presentation"""
+        root_item = self.GetRootItem()
+        child = self.GetFirstChild(root_item)
+        while child:
+            self.Expand(child)
+            child = self.GetNextSibling(child)
+
+
+    def ExpandRecursively(self, item):
+        if item:
+            child = self.GetFirstChild(item)
+            while child:
+                self.Expand(item)
+                self.ExpandRecursively(child)
+                child = self.GetNextSibling(child)
+
+
+    def CollapseRecursively(self, item):
+        if item:
+            child = self.GetFirstChild(item)
+            while child:
+                self.Collapse(item)
+                self.CollapseRecursively(child)
+                child = self.GetNextSibling(child)
+
+
+    def OnExpandAll(self, event):
+        """Function to expand children of the root item for presentation"""
+        root_item = self.GetRootItem()
+        self.ExpandRecursively(root_item)
+
+    def OnCollapseAll(self, event):
+        """Function to expand children of the root item for presentation"""
+        root_item = self.GetRootItem()
+        self.CollapseRecursively(root_item)
+
+#TODO: fix empty string, dict, list interpretation to not null
