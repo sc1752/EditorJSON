@@ -101,10 +101,34 @@ class TabTreeView(wx.Panel):
         # Bind functions to button
         self.btn_expand_all.Bind(wx.EVT_BUTTON, self.tree.OnExpandAll)
         self.btn_collapse_all.Bind(wx.EVT_BUTTON, self.tree.OnCollapseAll)
-        self.btn_edit.Bind(wx.EVT_BUTTON, self.tree.OnEditItem)
-        self.btn_delete.Bind(wx.EVT_BUTTON, self.tree.OnDeleteItem)
+        self.btn_edit.Bind(wx.EVT_BUTTON, self.OnEditTreeItem)
+        self.btn_delete.Bind(wx.EVT_BUTTON, self.OnDeleteTreeItem)
         self.btn_insert.Bind(wx.EVT_BUTTON, self.tree.OnInsert)
-        self.btn_append.Bind(wx.EVT_BUTTON, self.tree.OnAppendChild)
+        self.btn_append.Bind(wx.EVT_BUTTON, self.OnAppendChild)
+
+    def OnEditTreeItem(self, event):
+        """ Edit item handler """
+        try:
+            self.tree.OnEditItem(event)
+        except TreeView.TreeListItemNotSelectedException:
+            dlg = wx.MessageDialog(self, "Please select an item (row) to edit.")
+            dlg.ShowModal()
+
+    def OnDeleteTreeItem(self, event):
+        """ Delete item handler """
+        try:
+            self.tree.OnDeleteItem(event)
+        except TreeView.TreeListItemNotSelectedException:
+            dlg = wx.MessageDialog(self, "Please select an item (row) to delete.")
+            dlg.ShowModal()
+
+    def OnAppendChild(self, event):
+        try:
+            self.tree.OnAppendChild()
+        except TreeView.IllegalParentException:
+            dlg = wx.MessageDialog(self, "Cannot append children on non Object or Array Types")
+            dlg.ShowModal()
+
 
 class EditorJSON(wx.Frame):
     def __init__(self, parent, title, data : JSONDataModel):

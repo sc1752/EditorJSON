@@ -5,6 +5,7 @@ import copy
 import util
 
 class TreeItemDataType():
+    """ Pseudo data type enum """
     Null = 0
     String = 1
     Number = 2
@@ -13,6 +14,7 @@ class TreeItemDataType():
     Boolean = 5
 
     def GetTypeIndex(data):
+        """ Functions to rerturns Data type Emnum """
         if type(data) == str:
             return TreeItemDataType.String
         elif type(data) == int or type(data) == float:
@@ -26,9 +28,20 @@ class TreeItemDataType():
         else:
             return TreeItemDataType.Null
 
+class TreeListItemNotSelectedException(Exception):
+    """ Exception raised when missing user selection """
+    pass
+
+class IllegalParentException(Exception):
+    """ Exception raised append child action is attempted on a non object or list types """
+    pass
                 
 class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
-    def __init__(self, parent, showKey=True, values=None, title="Edit Json Object"):
+    """
+    Helper TreeListItem editor Dialogue window provide user input for JSON key, value 
+    type and value. 
+    """
+    def __init__(self, parent, showKey=True, enableType=True, values=None, title="Edit Json Object"):
         wx.Dialog.__init__(self, parent, title=title)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
@@ -39,6 +52,8 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
             self.ValueTypeSelect.SetSelection(values[1])   
 
         self.ValueTypeSelect.Bind(wx.EVT_CHOICE, self.OnValueTypeChanged)
+        if not enableType:
+            self.ValueTypeSelect.Disable()
 
         self.ValueInputFieldLabel = wx.StaticText(self, label="Value")
         self.ValueInputField = wx.TextCtrl(self)
@@ -47,7 +62,6 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
                 self.ValueInputField.SetValue(str(values[2]))
 
         self.ValueInputField.Bind(wx.EVT_TEXT, self.ValidateValue)
-
     
         self.KeyInputField = wx.TextCtrl(self)
         self.KeyInputField.Hide()
@@ -139,7 +153,7 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
 class JSONTreeView(DV.TreeListCtrl):
 
     def __init__(self, parent):
-        """"""
+        """ JSONTreeView constructor """
         DV.TreeListCtrl.__init__(self, parent, style=DV.TL_NO_HEADER|DV.TL_SINGLE)
         self.GetDataView().SetWindowStyle(DV.DV_VERT_RULES|DV.DV_HORIZ_RULES)
         self.Bind(DV.EVT_TREELIST_SELECTION_CHANGED, self.OnSelected)
@@ -159,7 +173,11 @@ class JSONTreeView(DV.TreeListCtrl):
         self.ExpandFirstLevelNodes()
 
     def BuildTreeViewFromJSONDataRecursively(self, JSON_Object, tree_parent):
-        if tree_parent and JSON_Object:
+        """
+        A recursive function that traverse JSON dictionary data and build 
+        TreeListView items recursively. 
+        """
+        if tree_parent:
             JSONparent = JSON_Object
             if type(JSON_Object) == dict:
                 if tree_parent != self.GetRootItem():
@@ -260,19 +278,23 @@ class JSONTreeView(DV.TreeListCtrl):
     def OnEditItem(self, event):
 
         if not self.activated or self.activated == self.GetRootItem():
-            return
+            raise TreeListItemNotSelectedException
 
         current_values = self.GetValuesFromRow(self.activated)
 
         show_key = True
+        enable_type_sel = True
         name_to_show = self.GetItemText(self.activated)
 
         parent = self.GetItemParent(self.activated)
         parent_type = self.GetParentDataType(self.activated)
-        if parent_type and parent_type == TreeItemDataType.Array:
+        if parent_type == TreeItemDataType.Array:
             show_key = False
-            
-        dlg = EditJSONTreeItemDiaglogueWindow(self, showKey=show_key, values=current_values, title="Edit %s" % name_to_show)
+
+        if self.ItemIsParent(self.activated):
+            enable_type_sel = False
+
+        dlg = EditJSONTreeItemDiaglogueWindow(self, showKey=show_key, values=current_values, enableType=enable_type_sel, title="Edit %s" % name_to_show)
         if dlg.ShowModal() == wx.ID_OK:
             (key, value) = dlg.GetDialogueValues()
             self.SetRow(self.activated, key, value)
@@ -287,6 +309,16 @@ class JSONTreeView(DV.TreeListCtrl):
                 self.SetItemText(current, text=str(index))
                 current = self.GetNextSibling(current)
                 index += 1
+
+    def ItemIsParent(self, item):
+        """ Returns true if speicifed tree item is a parent """
+        has_child = False
+        if item:
+            child = self.GetFirstChild(item)
+            if child:
+                has_child = True
+
+        return has_child
 
     def GetValuesFromRow(self, item):
         """
@@ -338,13 +370,16 @@ class JSONTreeView(DV.TreeListCtrl):
 
     def OnDeleteItem(self, event):
 
-        if self.activated and self.activated != self.GetRootItem():
-            parent = self.GetItemParent(self.activated)
-            self.DeleteItem(self.activated)
-            self.UpdateArrayItemChildrenIndex(parent)
+        if not self.activated or self.activated == self.GetRootItem():
+            raise TreeListItemNotSelectedException
+
+        parent = self.GetItemParent(self.activated)
+        self.DeleteItem(self.activated)
+        self.UpdateArrayItemChildrenIndex(parent)
+        
     
     def GetSelectedItemKey(self):
-        """Return the key of the selected item, return Root Item if nothing is selected."""
+        """ Return the printable name of the selected item, returns "Root Item" if nothing is selected."""
         if self.activated:
             if self.activated == self.GetRootItem():
                 return "Root Item"
@@ -376,8 +411,7 @@ class JSONTreeView(DV.TreeListCtrl):
                     self.Expand(self.activated)
                     self.Select(new_item)
             else:
-                dlg = wx.MessageDialog(self, 'Cannot append children on non Object or Array Types', 'Cannot append children')
-                dlg.ShowModal()
+                raise IllegalParentException
 
 
 
@@ -402,7 +436,7 @@ class JSONTreeView(DV.TreeListCtrl):
                         self.UpdateArrayItemChildrenIndex(parent)
                     self.Select(new_item)
         else:
-            # Append to the root item
+            # If no items is selected, append to the root item
             self.OnAppendChild(self.GetRootItem())
 
 
@@ -416,6 +450,7 @@ class JSONTreeView(DV.TreeListCtrl):
 
 
     def ExpandRecursively(self, item):
+        """ Expand the entire tree list recursively """
         if item:
             child = self.GetFirstChild(item)
             while child:
@@ -425,6 +460,7 @@ class JSONTreeView(DV.TreeListCtrl):
 
 
     def CollapseRecursively(self, item):
+        """ Collapse the entire tree list recursively """
         if item:
             child = self.GetFirstChild(item)
             while child:
@@ -442,5 +478,3 @@ class JSONTreeView(DV.TreeListCtrl):
         """Function to expand children of the root item for presentation"""
         root_item = self.GetRootItem()
         self.CollapseRecursively(root_item)
-
-#TODO: fix empty string, dict, list interpretation to not null
