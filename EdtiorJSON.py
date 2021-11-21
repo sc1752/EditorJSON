@@ -5,7 +5,6 @@ from json.decoder import JSONDecodeError
 from pathlib import Path
 import os
 import wx
-import time
 
 
 class TabTextView(wx.Panel):
@@ -150,12 +149,14 @@ class EditorJSON(wx.Frame):
         self.tree = self.tree_tab.tree
         self.editor_tab = TabTextView(self.tabs_panel)
         self.editor = self.editor_tab.editor
+        self.editor.BindTextModifiedHandler(self.OnJSONTextModified)
 
         # Assemble pages
         self.tabs_panel.AddPage(self.editor_tab, "Editor View")
         self.tabs_panel.AddPage(self.tree_tab, "Tree View")
         self.tabs_panel.SetPadding(wx.Size(10, 10))
         self.tabs_panel.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.ToggleEditingMode)
+        self.tabs_panel.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.UpdateToggleEditingStatus)
         self.tree_edit_mode = False
 
         # Setup Icons in tabs
@@ -174,8 +175,7 @@ class EditorJSON(wx.Frame):
         
         self.last_directory = None
         self.current_document_path = None
-        self.last_modified_time = time.time()
-        self.last_saved_time = time.time()
+        self.is_document_modified = False
 
         # Bind text editor buttons
         self.editor_tab.btn_pretty_format.Bind(wx.EVT_BUTTON, self.OnPrettify)
@@ -184,20 +184,21 @@ class EditorJSON(wx.Frame):
 
         self.OnInit()
 
-    def IsDocumentSaved(self):
-        return self.last_modified_time >= self.last_saved_time
 
     def SetUpMenuBar(self):
         self.menu = wx.MenuBar()
         file_menu = wx.Menu()
         file_item = wx.MenuItem(file_menu, wx.ID_NEW, text="New", helpString="Create new JSON file")
         file_menu.Append(file_item)
+        file_menu.AppendSeparator()
         file_item = wx.MenuItem(file_menu, wx.ID_OPEN, text="Open", helpString="Open existing JSON file")
         file_menu.Append(file_item)
+        file_menu.AppendSeparator()
         file_item = wx.MenuItem(file_menu, wx.ID_SAVE, text = "Save", helpString="Save current JSON file")
         file_menu.Append(file_item)
         file_item = wx.MenuItem(file_menu, wx.ID_SAVEAS, text = "Save As", helpString="Save as current JSON file")
         file_menu.Append(file_item)
+        file_menu.AppendSeparator()
         file_item = wx.MenuItem(file_menu, wx.ID_EXIT, text = "Exit", helpString="Exit tool")
         file_menu.Append(file_item)
 
@@ -206,6 +207,7 @@ class EditorJSON(wx.Frame):
         help_menu = wx.Menu()
         help_item = wx.MenuItem(help_menu, wx.ID_HELP, text = "Help", helpString="About this application")
         help_menu.Append(help_item)
+        help_menu.AppendSeparator()
         help_item = wx.MenuItem(help_menu, wx.ID_ABOUT, text = "About", helpString="About this application")
         help_menu.Append(help_item)
 
@@ -218,23 +220,50 @@ class EditorJSON(wx.Frame):
         self.OnNewFile()
 
     def ToggleEditingMode(self, event):
-        self.tree_edit_mode = not self.tree_edit_mode
+        """ Toggle handler to be """
         try:
-            if self.tree_edit_mode:
+            if not self.tree_edit_mode:
                 print('to tree')
-                self.JSONData.Text = self.editor.Text
-                self.JSONData.SyncTextToData()
-                self.tree.UpdateTreeViewFromJSONData(self.JSONData.JSONdata)
+                if self.JSONData.Text != self.editor.Text:
+                    self.JSONData.Text = self.editor.Text
+                    self.JSONData.SyncTextToData()
             else:
                 print('to editor')
-                self.JSONData.JSONdata = self.tree.GenerateJSONData()
-                self.JSONData.SyncDataToText()
-                self.editor.SetText(self.JSONData.Text)
-        except Exception as e:
-            #TODO handle decoder exception
+                treeData = self.tree.GenerateJSONData()
+                if self.JSONData.JSONdata != treeData:
+                    self.JSONData.JSONdata = self.tree.GenerateJSONData()
+                    self.JSONData.SyncDataToText()
+        except JSONDecodeError as e:
             event.Veto()
-            wx.MessageDialog(self, str(e), "Error")
+            self.JSONDecoderExceptionHandler(e, "Please fix JSON error before switching edit mode.\n")
+        except Exception:
+            event.Veto()
+            dlg = wx.MessageDialog(self, "Please fix JSON error before switching edit mode", "JSON format error")
+            dlg.ShowModal()
 
+
+    def UpdateToggleEditingStatus(self, event):
+        """ 
+        Handler of EVT_NOTEBOOK_PAGE_CHANGED to ensure update 
+        state only when EVT_NOTEBOOK_PAGE_CHANGGING was not vetoed.
+        """
+        self.tree_edit_mode = not self.tree_edit_mode
+        if self.tree_edit_mode:
+            print('update tree')
+            self.tree.UpdateTreeViewFromJSONData(self.JSONData.JSONdata)
+        else:
+            print('update editor')
+            self.editor.SetText(self.JSONData.Text)
+
+    def JSONDecoderExceptionHandler(self, error: JSONDecodeError, msg : str):
+        """
+        Function will be called to respond to Text editor formating errors. 
+        Sending line number and column number information to the editor highlight.
+        """
+        msg += str(error)
+        self.editor.HighlightIndicateError(error.lineno, error.colno, error.pos)
+        dlg = wx.MessageDialog(self, msg, "JSON format error")
+        dlg.ShowModal()
 
     def MenuItemHandler(self, event):
         id = event.GetId()
@@ -246,17 +275,24 @@ class EditorJSON(wx.Frame):
             self.OnPromptToSave()
         elif id == wx.ID_SAVEAS:
             self.OnPromptToSave(save_as=True)
+        elif id == wx.ID_EXIT:
+            self.OnClose()
         
     def OnNewFile(self):
-        if not self.IsDocumentSaved():
-            self.OnPromptToSave()
+        if self.is_document_modified:
+            dlg = wx.MessageDialog(self, "Do you want to save current document? ", style=wx.YES_NO)
+            if dlg.ShowModal() == wx.ID_OK:
+                self.OnPromptToSave()
+            
         self.tree.DeleteAllItems()
         self.editor.ClearAll()
         self.JSONData.NewFile()
         self.editor.SetText(self.JSONData.Text)
         self.tree.UpdateTreeViewFromJSONData(self.JSONData.JSONdata)
         self.current_document_path = None
-        self.last_saved_time = time.time()
+        self.is_document_modified = False
+
+        self.UpdateWindowTitle()
     
     def GetDefaultDirectory(self):
         """Get recent directory or use home directory"""
@@ -266,7 +302,12 @@ class EditorJSON(wx.Frame):
             return str(Path.home())
 
     def OnOpenFile(self):
-        
+        """ Handle new open file"""
+        if self.is_document_modified:
+            dlg = wx.MessageDialog(self, "Do you want to save current document? ", style=wx.YES_NO)
+            if dlg.ShowModal() == wx.ID_OK:
+                self.OnPromptToSave()
+
         with wx.FileDialog(self, "Select JSON file to load", defaultDir=self.GetDefaultDirectory(), 
         wildcard='*.json', style=wx.FD_OPEN) as dlg:
             if dlg.ShowModal() != wx.ID_CANCEL:
@@ -276,9 +317,12 @@ class EditorJSON(wx.Frame):
                         self.JSONData.SetJSONText(file.read())
                         self.editor.SetText(self.JSONData.Text)
                         self.current_document_path = path
-                        self.last_saved_time = time.time()
+                        self.is_document_modified = False
+
+                        self.UpdateWindowTitle()
                 except Exception:
-                    wx.MessageDialog(self, "Unable to open %s ." % path, "Error")
+                    dlg = wx.MessageDialog(self, "Unable to open %s ." % path, "Error")
+                    dlg.ShowModal()
 
                 self.last_directory = os.path.dirname(path)
 
@@ -287,8 +331,8 @@ class EditorJSON(wx.Frame):
                 self.JSONData.SyncTextToData()
                 self.tree.UpdateTreeViewFromJSONData(self.JSONData.JSONdata)
             except Exception:
-                wx.MessageDialog(self, "Unable to parse loaded JSON file.", "Error")
-                wx.GenericMessageDialog(self, "Unable to parse loaded JSON file.")
+                dlg =wx.MessageDialog(self, "Unable to parse loaded JSON file.", "Error")
+                dlg.ShowModal()
         
 
     def OnPromptToSave(self, save_as=False):
@@ -297,7 +341,8 @@ class EditorJSON(wx.Frame):
             try:
                 self.SaveFile(self.current_document_path)
             except Exception:
-                wx.GenericMessageDialog(self, "Unable to save %s ." % self.current_document_path)
+                dlg = wx.MessageDialog(self, "Unable to save %s ." % self.current_document_path)
+                dlg.ShowModal()
             return
 
         with wx.FileDialog(self, "Select Save Location", defaultDir=self.GetDefaultDirectory(), 
@@ -307,8 +352,11 @@ class EditorJSON(wx.Frame):
                 try:
                     self.SaveFile(path)
                     self.current_document_path = path
+                    self.is_document_modified = False
+                    self.UpdateWindowTitle()
                 except Exception:
-                    wx.GenericMessageDialog(self, "Unable to save %s ." % path)
+                    dlg = wx.MessageDialog(self, "Unable to save file at %s ." % path)
+                    dlg.ShowModal()
 
                 self.last_directory = os.path.dirname(path)
 
@@ -321,7 +369,7 @@ class EditorJSON(wx.Frame):
                     self.JSONData.SetJSONText(self.editor.GetText())
 
                 file.write(self.JSONData.Text)
-                self.last_saved_time = time.time()
+
         except Exception as error:
             raise error
 
@@ -331,9 +379,8 @@ class EditorJSON(wx.Frame):
             self.JSONData.Text = self.editor.GetText()
             self.JSONData.PrettifyText()
             self.editor.Text = self.JSONData.Text
-        except ValueError as error:
-            print(error)
-            #TODO
+        except JSONDecodeError as error:
+            self.JSONDecoderExceptionHandler(error, "Unable to format JSON due to format error.\n")
 
     def OnCompactify(self, event):
 
@@ -341,19 +388,37 @@ class EditorJSON(wx.Frame):
             self.JSONData.Text = self.editor.GetText()
             self.JSONData.CompactifyText()
             self.editor.Text = self.JSONData.Text
-        except ValueError as error:
-            print(error)
-            #TODO
+        except JSONDecodeError as error:
+            self.JSONDecoderExceptionHandler(error, "Unable to compact JSON due to format error\n")
 
     def OnValidateText(self, event):
         try:
             self.JSONData.Text = self.editor.GetText()
             self.JSONData.ValidateJSONText()
-            self.editor.Text = self.JSONData.Text
-        except ValueError as error:
-            print(error)
-            #TODO
+            self.editor.ClearAllIndicators()
+            dlg = wx.MessageDialog(self, "JSON is valid!")
+            dlg.ShowModal() 
+        except JSONDecodeError as error:
+            self.JSONDecoderExceptionHandler(error, "Validation Failed: \n")
+        
+    def OnJSONTextModified(self, event):
+        """ """
+        self.is_document_modified = True
+        self.UpdateWindowTitle()
 
+    def UpdateWindowTitle(self):
+        title = "Editor JSON"
+        if self.current_document_path:
+            title = title + " - " + os.path.basename(self.current_document_path)
+        else:
+            title =  title + " - " + "Untitled JSON"
+        if self.is_document_modified:
+            title += "*"
+        
+        self.SetTitle(title)
+
+    def OnClose(self):
+        self.Close()
     
 class MyApp(wx.App):
     def OnInit(self):
