@@ -5,7 +5,16 @@ from json.decoder import JSONDecodeError
 from pathlib import Path
 import os
 import wx
+import sys
 
+
+# PyInstaller workaround
+def resource_path():
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS)
+    return os.path.join(os.path.abspath("."))
+
+app_dir_root = resource_path()
 
 class TabTextView(wx.Panel):
     def __init__(self, parent):
@@ -14,23 +23,23 @@ class TabTextView(wx.Panel):
         self.control_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
         
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_undo.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_undo.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_undo = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_undo.ToolTip = "Undo"
     
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_redo.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_redo.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_redo = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_redo.ToolTip = "Redo"
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_formatted.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_formatted.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_pretty_format = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_pretty_format.ToolTip = "Pretty Formating"
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_compact.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_compact.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_compact_format = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_compact_format.ToolTip = "Compact Formating"
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_validate.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_validate.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_validate = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_validate.ToolTip = "Validate"
 
@@ -59,27 +68,27 @@ class TabTreeView(wx.Panel):
         self.control_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_expand.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_expand.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_expand_all = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
-        self.btn_expand_all.ToolTip = "Expand"
+        self.btn_expand_all.ToolTip = "Expand All"
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_collaspe.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_collaspe.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_collapse_all = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
-        self.btn_collapse_all.ToolTip = "Collapse"
+        self.btn_collapse_all.ToolTip = "Collapse All"
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_edit.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_edit.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_edit = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
-        self.btn_edit.ToolTip = "Collapse"
+        self.btn_edit.ToolTip = "Edit Item"
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_delete.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_delete.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_delete = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
-        self.btn_delete.ToolTip = "Collapse"
+        self.btn_delete.ToolTip = "Delete Item"
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_insert.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_insert.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_insert = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_insert.ToolTip = "Insert new entry"
 
-        bitmap = wx.Bitmap(os.path.join("icon", "btn_addchild.png"), type=wx.BITMAP_TYPE_PNG)
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_addchild.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_append = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_append.ToolTip = "Add child"
 
@@ -123,7 +132,7 @@ class TabTreeView(wx.Panel):
 
     def OnAppendChild(self, event):
         try:
-            self.tree.OnAppendChild()
+            self.tree.OnAppendChild(event)
         except TreeView.IllegalParentException:
             dlg = wx.MessageDialog(self, "Cannot append children on non Object or Array Types")
             dlg.ShowModal()
@@ -161,8 +170,8 @@ class EditorJSON(wx.Frame):
 
         # Setup Icons in tabs
         image_list = wx.ImageList(25, 25)
-        icon_editor = image_list.Add(wx.Bitmap(os.path.join("icon", "btn_json.png"), wx.BITMAP_TYPE_PNG))
-        icon_treev = image_list.Add(wx.Bitmap(os.path.join("icon", "btn_treeview.png"), wx.BITMAP_TYPE_PNG))
+        icon_editor = image_list.Add(wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_json.png"), wx.BITMAP_TYPE_PNG))
+        icon_treev = image_list.Add(wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_treeview.png"), wx.BITMAP_TYPE_PNG))
         self.tabs_panel.AssignImageList(image_list)
         self.tabs_panel.SetPageImage(0, icon_editor)
         self.tabs_panel.SetPageImage(1, icon_treev)
@@ -223,16 +232,16 @@ class EditorJSON(wx.Frame):
         """ Toggle handler to be """
         try:
             if not self.tree_edit_mode:
-                print('to tree')
-                if self.JSONData.Text != self.editor.Text:
-                    self.JSONData.Text = self.editor.Text
-                    self.JSONData.SyncTextToData()
+                self.JSONData.Text = self.editor.Text
+                self.JSONData.SyncTextToData()
+                self.tree.UpdateTreeViewFromJSONData(self.JSONData.JSONdata)
             else:
-                print('to editor')
                 treeData = self.tree.GenerateJSONData()
                 if self.JSONData.JSONdata != treeData:
                     self.JSONData.JSONdata = self.tree.GenerateJSONData()
                     self.JSONData.SyncDataToText()
+                    if self.editor.GetText() != self.JSONData.Text:
+                        self.editor.SetText(self.JSONData.Text)
         except JSONDecodeError as e:
             event.Veto()
             self.JSONDecoderExceptionHandler(e, "Please fix JSON error before switching edit mode.\n")
@@ -248,12 +257,7 @@ class EditorJSON(wx.Frame):
         state only when EVT_NOTEBOOK_PAGE_CHANGGING was not vetoed.
         """
         self.tree_edit_mode = not self.tree_edit_mode
-        if self.tree_edit_mode:
-            print('update tree')
-            self.tree.UpdateTreeViewFromJSONData(self.JSONData.JSONdata)
-        else:
-            print('update editor')
-            self.editor.SetText(self.JSONData.Text)
+
 
     def JSONDecoderExceptionHandler(self, error: JSONDecodeError, msg : str):
         """
@@ -277,6 +281,10 @@ class EditorJSON(wx.Frame):
             self.OnPromptToSave(save_as=True)
         elif id == wx.ID_EXIT:
             self.OnClose()
+        elif id == wx.ID_HELP:
+            self.OnHelp()
+        elif id == wx.ID_ABOUT:
+            self.OnAbout()
         
     def OnNewFile(self):
         if self.is_document_modified:
@@ -286,7 +294,12 @@ class EditorJSON(wx.Frame):
             
         self.tree.DeleteAllItems()
         self.editor.ClearAll()
-        self.JSONData.NewFile()
+        try:
+            self.JSONData.NewFile()
+        except JSONDecodeError:
+            dlg =wx.MessageDialog(self, "Unable to parse loaded JSON file.", "Error")
+            dlg.ShowModal()
+
         self.editor.SetText(self.JSONData.Text)
         self.tree.UpdateTreeViewFromJSONData(self.JSONData.JSONdata)
         self.current_document_path = None
@@ -308,6 +321,7 @@ class EditorJSON(wx.Frame):
             if dlg.ShowModal() == wx.ID_OK:
                 self.OnPromptToSave()
 
+        file_opened = False
         with wx.FileDialog(self, "Select JSON file to load", defaultDir=self.GetDefaultDirectory(), 
         wildcard='*.json', style=wx.FD_OPEN) as dlg:
             if dlg.ShowModal() != wx.ID_CANCEL:
@@ -317,9 +331,7 @@ class EditorJSON(wx.Frame):
                         self.JSONData.SetJSONText(file.read())
                         self.editor.SetText(self.JSONData.Text)
                         self.current_document_path = path
-                        self.is_document_modified = False
-
-                        self.UpdateWindowTitle()
+                        file_opened = True
                 except Exception:
                     dlg = wx.MessageDialog(self, "Unable to open %s ." % path, "Error")
                     dlg.ShowModal()
@@ -330,13 +342,18 @@ class EditorJSON(wx.Frame):
             try:
                 self.JSONData.SyncTextToData()
                 self.tree.UpdateTreeViewFromJSONData(self.JSONData.JSONdata)
-            except Exception:
+            except JSONDecodeError:
                 dlg =wx.MessageDialog(self, "Unable to parse loaded JSON file.", "Error")
                 dlg.ShowModal()
+        
+        if file_opened:
+            self.is_document_modified = False
+            self.UpdateWindowTitle()
         
 
     def OnPromptToSave(self, save_as=False):
         """Prompt a save file diaglogue to user."""
+        print(self.current_document_path)
         if not save_as and self.current_document_path and os.path.isfile(self.current_document_path):
             try:
                 self.SaveFile(self.current_document_path)
@@ -352,8 +369,7 @@ class EditorJSON(wx.Frame):
                 try:
                     self.SaveFile(path)
                     self.current_document_path = path
-                    self.is_document_modified = False
-                    self.UpdateWindowTitle()
+                
                 except Exception:
                     dlg = wx.MessageDialog(self, "Unable to save file at %s ." % path)
                     dlg.ShowModal()
@@ -369,6 +385,8 @@ class EditorJSON(wx.Frame):
                     self.JSONData.SetJSONText(self.editor.GetText())
 
                 file.write(self.JSONData.Text)
+                self.is_document_modified = False
+                self.UpdateWindowTitle()
 
         except Exception as error:
             raise error
@@ -420,6 +438,13 @@ class EditorJSON(wx.Frame):
     def OnClose(self):
         self.Close()
     
+    def OnHelp(self):
+        wx.LaunchDefaultBrowser("https://github.com/sc1752/EditorJSON/wiki")
+    
+    def OnAbout(self):
+        dlg = wx.MessageDialog(self, "Author: c. shu", "About")
+        dlg.ShowModal()
+
 class MyApp(wx.App):
     def OnInit(self):
         self.data = JSONDataModel()

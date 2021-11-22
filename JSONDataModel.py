@@ -1,7 +1,7 @@
 import json
 from json.decoder import JSONDecodeError
 
-Sample_JSON = "{\n\t\"Message\": \"Welcome to JSON Editor\",\n\t\"Year\": 2021,\n\t\"Array\": [\"apple\", \"orange\"],\n\t\"Object\": {\n\t\t\"ID\": 1,\n\t\t\"Name\" : \"Object\"\n\t }\n}"
+Sample_JSON = "{\n\"Message\": \"Welcome to JSON Editor\",\n\"Description\": \"Simple JSON viewer/editor for editing and viewing JSON text files.\",\n\"Edit Mode\": [\"Text View\", \"Tree View\"],\n\"About\": {\n\t\"Year\": 2021,\n\t\"Readme\" : \"https://github.com/sc1752/EditorJSON/wiki\"\n\t }\n}"
 
 class JSONDataModel():
 
@@ -14,6 +14,8 @@ class JSONDataModel():
 
     def NewFile(self):
         self.Text = Sample_JSON
+        self.JSONdata = None
+        self.SyncTextToData()
 
     def ValidateJSONText(self):
         """Returns None if JSON text data is valid using JSON module.""" 
@@ -21,7 +23,6 @@ class JSONDataModel():
             json.loads(self.Text)
         except JSONDecodeError as err:
             raise err
-
 
     def ValidateJSONData(self):
         """Returns None if JSON data dict is valid using JSON module.""" 
@@ -40,7 +41,9 @@ class JSONDataModel():
     def SyncTextToData(self):
         """Syncs Text to data"""
         try:
-            self.JSONdata = json.loads(self.Text)
+            data = json.loads(self.Text)
+            if data != self.JSONdata:
+                self.JSONdata = data
         except JSONDecodeError as err:
             raise err
     

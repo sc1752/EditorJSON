@@ -266,14 +266,21 @@ class JSONTreeView(DV.TreeListCtrl):
 
     def ContextMenuItemHandler(self, event):
         ID = event.GetId()
-        if ID == 1:
-            self.OnEditItem(event)
-        elif ID == 2:
-            self.OnDeleteItem(event)
-        elif ID == 3:
-            self.OnAppendChild(event)
-        elif ID == 4:
-            self.OnInsert(event)
+        try:
+            if ID == 1:
+                self.OnEditItem(event)
+            elif ID == 2:
+                self.OnDeleteItem(event)
+            elif ID == 3:
+                self.OnAppendChild(event)
+            elif ID == 4:
+                self.OnInsert(event)
+        except TreeListItemNotSelectedException:
+            dlg = wx.MessageDialog(self, "Please select an item (row) to process.")
+            dlg.ShowModal()
+        except IllegalParentException:
+            dlg = wx.MessageDialog(self, "Cannot append children on non Object or Array Types")
+            dlg.ShowModal()
 
     def OnEditItem(self, event):
 
@@ -437,7 +444,10 @@ class JSONTreeView(DV.TreeListCtrl):
                     self.Select(new_item)
         else:
             # If no items is selected, append to the root item
-            self.OnAppendChild(self.GetRootItem())
+            try:
+                self.OnAppendChild(self.GetRootItem())
+            except IllegalParentException as error:
+                raise error
 
 
     def ExpandFirstLevelNodes(self):
