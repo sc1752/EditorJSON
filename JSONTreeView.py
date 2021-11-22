@@ -41,12 +41,14 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
     Helper TreeListItem editor Dialogue window provide user input for JSON key, value 
     type and value. 
     """
-    def __init__(self, parent, showKey=True, enableType=True, values=None, title="Edit Json Object"):
+    def __init__(self, parent, showKey=True, enableType=True, enableValue=True, values=None, title="Edit Json Object"):
         wx.Dialog.__init__(self, parent, title=title)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
+        self.value_type_vbox = wx.BoxSizer(wx.VERTICAL)
         self.ValueTypedLabel = wx.StaticText(self, label="Value Type")
         self.ValueTypeSelect = wx.Choice(self, choices=['None', 'String', 'Number', 'Object', 'Array', 'Boolean'])
+
         self.ValueTypeSelect.SetSelection(TreeItemDataType.String)
         if values and values[1]:
             self.ValueTypeSelect.SetSelection(values[1])   
@@ -55,6 +57,7 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
         if not enableType:
             self.ValueTypeSelect.Disable()
 
+        self.value_vbox = wx.BoxSizer(wx.VERTICAL)
         self.ValueInputFieldLabel = wx.StaticText(self, label="Value")
         self.ValueInputField = wx.TextCtrl(self)
         if values and values[2]:
@@ -62,14 +65,18 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
                 self.ValueInputField.SetValue(str(values[2]))
 
         self.ValueInputField.Bind(wx.EVT_TEXT, self.ValidateValue)
+
+        if not enableValue:
+            self.ValueInputField.Disable()
     
+        self.key_vbox = wx.BoxSizer(wx.VERTICAL)
         self.KeyInputField = wx.TextCtrl(self)
         self.KeyInputField.Hide()
         if showKey:
-            self.KeyInputFieldLabel = wx.StaticText(self, label="Field Name")
+            self.KeyInputFieldLabel = wx.StaticText(self, label="Property Name")
             self.KeyInputField.Show()
-            self.v_box.Add(self.KeyInputFieldLabel,0, wx.EXPAND|wx.ALL, 3)
-            self.v_box.Add(self.KeyInputField, 0, wx.EXPAND|wx.ALL, 3)
+            self.key_vbox.Add(self.KeyInputFieldLabel,0, wx.EXPAND|wx.ALL, 3)
+            self.key_vbox.Add(self.KeyInputField, 0, wx.EXPAND|wx.ALL, 3)
             if values and values[0]:
                 self.KeyInputField.SetValue(values[0])
         
@@ -78,15 +85,22 @@ class EditJSONTreeItemDiaglogueWindow(wx.Dialog):
         self.OkBtn.Bind(wx.EVT_BUTTON, self.OnOK)
         self.CancelBtn = wx.Button(self, label='Cancel')
         self.CancelBtn.Bind(wx.EVT_BUTTON, self.OnCancel)
-        self.buttons_sizer.Add(self.CancelBtn)
-        self.buttons_sizer.Add(self.OkBtn)
+        self.buttons_sizer.Add(self.CancelBtn, 0, wx.EXPAND)
+        self.buttons_sizer.Add(self.OkBtn, 0, wx.EXPAND)
         
-        self.v_box.Add(self.ValueTypedLabel,0, wx.EXPAND|wx.ALL, 3)
-        self.v_box.Add(self.ValueTypeSelect, 0, wx.EXPAND|wx.ALL, 3)
+        self.value_type_vbox.Add(self.ValueTypedLabel,0, wx.EXPAND|wx.ALL, 3)
+        self.value_type_vbox.Add(self.ValueTypeSelect, 0, wx.EXPAND|wx.ALL, 3)
 
-        self.v_box.Add(self.ValueInputFieldLabel,0, wx.EXPAND|wx.ALL, 3)
-        self.v_box.Add(self.ValueInputField, 0, wx.EXPAND|wx.ALL, 3)
-        self.v_box.Add(self.buttons_sizer, 0, wx.EXPAND|wx.ALL, 5)
+        self.value_vbox.Add(self.ValueInputFieldLabel,0, wx.EXPAND|wx.ALL, 3)
+        self.value_vbox.Add(self.ValueInputField, 0, wx.EXPAND|wx.ALL, 3)
+
+        self.inputs_hbox = wx.BoxSizer(wx.HORIZONTAL)
+        self.inputs_hbox.Add(self.key_vbox, 0.2, wx.EXPAND)
+        self.inputs_hbox.Add(self.value_type_vbox, 0.1, wx.EXPAND)
+        self.inputs_hbox.Add(self.value_vbox, 0.7, wx.EXPAND)
+
+        self.v_box.Add(self.inputs_hbox, 0, wx.EXPAND|wx.ALL, 2)
+        self.v_box.Add(self.buttons_sizer, 0, wx.ALL|wx.ALIGN_RIGHT, 5)
 
         self.SetSizerAndFit(self.v_box)
         return
@@ -291,6 +305,7 @@ class JSONTreeView(DV.TreeListCtrl):
 
         show_key = True
         enable_type_sel = True
+        enable_value_enter = True
         name_to_show = self.GetItemText(self.activated)
 
         parent = self.GetItemParent(self.activated)
@@ -300,8 +315,10 @@ class JSONTreeView(DV.TreeListCtrl):
 
         if self.ItemIsParent(self.activated):
             enable_type_sel = False
+            enable_value_enter = False
 
-        dlg = EditJSONTreeItemDiaglogueWindow(self, showKey=show_key, values=current_values, enableType=enable_type_sel, title="Edit %s" % name_to_show)
+        dlg = EditJSONTreeItemDiaglogueWindow(self, showKey=show_key, values=current_values, enableType=enable_type_sel, 
+        enableValue=enable_value_enter, title="Edit %s" % name_to_show)
         if dlg.ShowModal() == wx.ID_OK:
             (key, value) = dlg.GetDialogueValues()
             self.SetRow(self.activated, key, value)
