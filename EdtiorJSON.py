@@ -57,7 +57,7 @@ class TabTextView(wx.Panel):
 
         # Bind button functions
         self.btn_undo.Bind(wx.EVT_BUTTON, self.editor.OnUndo)
-        self.btn_redo.Bind(wx.EVT_BUTTON, self.editor.OnUndo)
+        self.btn_redo.Bind(wx.EVT_BUTTON, self.editor.OnRedo)
 
 
 
