@@ -198,16 +198,28 @@ class EditorJSON(wx.Frame):
         self.menu = wx.MenuBar()
         file_menu = wx.Menu()
         file_item = wx.MenuItem(file_menu, wx.ID_NEW, text="New", helpString="Create new JSON file")
-        file_menu.Append(file_item)
+        accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('N'), wx.ID_NEW)
+        file_item.SetAccel(accelerator_entry)
         file_menu.AppendSeparator()
+        file_menu.Append(file_item)
+        
         file_item = wx.MenuItem(file_menu, wx.ID_OPEN, text="Open", helpString="Open existing JSON file")
-        file_menu.Append(file_item)
+        accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('O'), wx.ID_OPEN)
+        file_item.SetAccel(accelerator_entry)
         file_menu.AppendSeparator()
+        file_menu.Append(file_item)
+
         file_item = wx.MenuItem(file_menu, wx.ID_SAVE, text = "Save", helpString="Save current JSON file")
+        accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('S'), wx.ID_SAVE)
+        file_item.SetAccel(accelerator_entry)
         file_menu.Append(file_item)
+
         file_item = wx.MenuItem(file_menu, wx.ID_SAVEAS, text = "Save As", helpString="Save as current JSON file")
+        accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL|wx.ACCEL_SHIFT, ord('S'), wx.ID_SAVEAS)
+        file_item.SetAccel(accelerator_entry)
         file_menu.Append(file_item)
         file_menu.AppendSeparator()
+
         file_item = wx.MenuItem(file_menu, wx.ID_EXIT, text = "Exit", helpString="Exit tool")
         file_menu.Append(file_item)
 
@@ -355,7 +367,6 @@ class EditorJSON(wx.Frame):
 
     def OnPromptToSave(self, save_as=False):
         """Prompt a save file diaglogue to user."""
-        print(self.current_document_path)
         if not save_as and self.current_document_path and os.path.isfile(self.current_document_path):
             try:
                 self.SaveFile(self.current_document_path)
