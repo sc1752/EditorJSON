@@ -223,7 +223,9 @@ class EditorJSON(wx.Frame):
         self.menu.Append(file_menu, "File")
         self.menu.Append(help_menu, "Help")
         self.SetMenuBar(self.menu)
+
         self.Bind(wx.EVT_MENU, self.MenuItemHandler)
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
 
     def OnInit(self):
         self.OnNewFile()
@@ -280,7 +282,7 @@ class EditorJSON(wx.Frame):
         elif id == wx.ID_SAVEAS:
             self.OnPromptToSave(save_as=True)
         elif id == wx.ID_EXIT:
-            self.OnClose()
+            self.Close()
         elif id == wx.ID_HELP:
             self.OnHelp()
         elif id == wx.ID_ABOUT:
@@ -290,7 +292,7 @@ class EditorJSON(wx.Frame):
         if self.is_document_modified:
             dlg = wx.MessageDialog(self, "Do you want to save current document? ", style=wx.YES_NO)
             if dlg.ShowModal() == wx.ID_OK:
-                self.OnPromptToSave()
+                self.OnPromptToSave(save_as=True)
             
         self.tree.DeleteAllItems()
         self.editor.ClearAll()
@@ -435,8 +437,18 @@ class EditorJSON(wx.Frame):
         
         self.SetTitle(title)
 
-    def OnClose(self):
-        self.Close()
+    def OnClose(self, event):
+        """ Handle application cloes event. This prompt user to save current document or not. """
+        if self.is_document_modified:
+            dlg = wx.MessageDialog(self, "Do you want to save current document? ", style=wx.YES|wx.NO|wx.CANCEL)
+            id = dlg.ShowModal()
+            if id == wx.ID_YES:
+                self.OnPromptToSave(save_as=True)
+            elif id == wx.ID_CANCEL:
+                event.Veto()
+                return
+            
+        self.Destroy() 
     
     def OnHelp(self):
         wx.LaunchDefaultBrowser("https://github.com/sc1752/EditorJSON/wiki")
