@@ -22,16 +22,20 @@ class JSONTextView(stc.StyledTextCtrl):
         self.SetKeyWords(0, "true false null")
         self.SetLexer(stc.STC_LEX_JSON)
 
-
         # Styles
         self.SetTabIndents(4)
         self.indicators = [] #list to store current indicator ranges in tuples
         self.DefineErrorInidcators()
         self.SetTextStyle()
 
+        # Modified Mask
+        self.SetModEventMask(stc.STC_MOD_INSERTTEXT|stc.STC_MOD_DELETETEXT|stc.STC_PERFORMED_UNDO|
+        stc.STC_PERFORMED_REDO|stc.STC_MULTILINEUNDOREDO|stc.STC_LASTSTEPINUNDOREDO)
+
         self.Bind(wx.EVT_KEY_UP, self.OnKey)
         self.Bind(wx.EVT_FIND, self.OnFindNext)
         self.Bind(wx.EVT_FIND_NEXT, self.OnFindNext)
+        
 
     def GetFaces(self):
         return dict(font=self.face, size=self.size)
