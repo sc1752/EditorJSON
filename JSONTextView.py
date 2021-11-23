@@ -95,14 +95,31 @@ class JSONTextView(stc.StyledTextCtrl):
 
     def OnFindNext(self, event):
         """ Find text find next event handler """
-        self.search_replace_data.GetFlags()
+        flags = self.search_replace_data.GetFlags()
+        going_down = False
+        if flags & wx.FR_DOWN:
+            going_down = True
 
-        self.SetCurrentPos(self.GetAnchor())
+        if going_down:
+            self.SetCurrentPos(self.GetAnchor())
+        else:
+            back = self.GetAnchor()-1
+            if back <= 0:
+                back = self.GetTextLength()
+            self.SetAnchor(back)
+            self.SetCurrentPos(back)
+
         self.SearchAnchor()
         self.ClearSelections()
-        self.SearchNext(self.search_replace_data.GetFlags(), self.search_replace_data.GetFindString())
-    
+        
+        if going_down:
+            self.SearchNext(flags, self.search_replace_data.GetFindString())
+            self.LineScrollDown()
+        else:
+            self.SearchPrev(flags, self.search_replace_data.GetFindString())
+            self.LineScrollUp()
 
+    
     def OnUndo(self, event):
         self.Undo()
 
