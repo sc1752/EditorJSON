@@ -44,15 +44,15 @@ class TabTextView(wx.Panel):
         self.btn_search.ToolTip = "Search"
 
         bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_validate.png"), type=wx.BITMAP_TYPE_PNG)
-        self.btn_validate = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
-        self.btn_validate.ToolTip = "Validate"
+        self.btn_validate = wx.BitmapToggleButton(self, label=bitmap, size=(30,30))
+        self.btn_validate.ToolTip = "Toggle on/off live JSON format checking"
 
         self.control_panel_sizer.Add(self.btn_undo)
         self.control_panel_sizer.Add(self.btn_redo)
         self.control_panel_sizer.Add(self.btn_pretty_format)
         self.control_panel_sizer.Add(self.btn_compact_format)
-        self.control_panel_sizer.Add(self.btn_validate)
         self.control_panel_sizer.Add(self.btn_search)
+        self.control_panel_sizer.Add(self.btn_validate)
 
         self.editor = TextView.JSONTextView(self)
 
@@ -149,7 +149,7 @@ class EditorJSON(wx.Frame):
 
         self.JSONData = data
 
-        self.SetSize(600, 800)
+        self.SetSize(800, 600)
         self.SetUpMenuBar()
 
         # Main sizer
@@ -157,7 +157,7 @@ class EditorJSON(wx.Frame):
         
         # Tree, Text Editor Area
         main_panel = wx.Panel(self)
-        self.tabs_panel = wx.Notebook(main_panel, size=(600,800), style=wx.NB_NOPAGETHEME)
+        self.tabs_panel = wx.Notebook(main_panel, size=(800,600), style=wx.NB_NOPAGETHEME)
 
         self.tree_tab = TabTreeView(self.tabs_panel)
         self.tree = self.tree_tab.tree
@@ -181,6 +181,7 @@ class EditorJSON(wx.Frame):
         self.tabs_panel.SetPageImage(0, icon_editor)
         self.tabs_panel.SetPageImage(1, icon_treev)
 
+        self.status_bar = self.CreateStatusBar()
 
         main_sizer.Add(self.tabs_panel, 1, wx.EXPAND)
 
@@ -190,11 +191,12 @@ class EditorJSON(wx.Frame):
         self.last_directory = None
         self.current_document_path = None
         self.is_document_modified = False
+        self.live_json_validation_on = False
 
         # Bind text editor buttons
         self.editor_tab.btn_pretty_format.Bind(wx.EVT_BUTTON, self.OnPrettify)
         self.editor_tab.btn_compact_format.Bind(wx.EVT_BUTTON, self.OnCompactify)
-        self.editor_tab.btn_validate.Bind(wx.EVT_BUTTON, self.OnValidateText)
+        self.editor_tab.btn_validate.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleValidateContinously)
         self.editor_tab.btn_search.Bind(wx.EVT_BUTTON, self.editor.OnSearch)
 
         self.OnInit()
@@ -315,15 +317,17 @@ class EditorJSON(wx.Frame):
             self.edit_menu.Enable(wx.ID_FIND, enable)
         
 
-    def JSONDecoderExceptionHandler(self, error: JSONDecodeError, msg : str):
+    def JSONDecoderExceptionHandler(self, error: JSONDecodeError, msg : str, quiet = False):
         """
         Function will be called to respond to Text editor formating errors. 
         Sending line number and column number information to the editor highlight.
         """
         msg += str(error)
         self.editor.HighlightIndicateError(error.lineno, error.colno, error.pos)
-        dlg = wx.MessageDialog(self, msg, "JSON format error")
-        dlg.ShowModal()
+        self.status_bar.PushStatusText(msg)
+        if not quiet:
+            dlg = wx.MessageDialog(self, msg, "JSON format error")
+            dlg.ShowModal()
 
     def MenuItemHandler(self, event):
         id = event.GetId()
@@ -472,20 +476,40 @@ class EditorJSON(wx.Frame):
         except JSONDecodeError as error:
             self.JSONDecoderExceptionHandler(error, "Unable to compact JSON due to format error\n")
 
-    def OnValidateText(self, event):
+    def OnValidateText(self, event, quiet=False):
         try:
             self.JSONData.Text = self.editor.GetText()
             self.JSONData.ValidateJSONText()
             self.editor.ClearAllIndicators()
-            dlg = wx.MessageDialog(self, "JSON is valid!")
-            dlg.ShowModal() 
+
+            if not quiet:
+                dlg = wx.MessageDialog(self, "JSON is valid!")
+                dlg.ShowModal() 
+            self.status_bar.SetStatusText("")
         except JSONDecodeError as error:
-            self.JSONDecoderExceptionHandler(error, "Validation Failed: \n")
+            self.JSONDecoderExceptionHandler(error, "Validation Failed: \n", quiet)
         
+
+    def OnToggleValidateContinously(self, event):
+        """ Hanldes event when turning JSON format checker on or off """
+        self.live_json_validation_on = event.IsChecked()
+        if self.live_json_validation_on:
+            self.OnValidateText(None, quiet=True)
+            self.status_bar.SetStatusText("JSON checker ON")
+        else:
+            self.status_bar.SetStatusText("")
+            self.editor.ClearAllIndicators()
+
+
     def OnJSONTextModified(self, event):
-        """ """
-        self.is_document_modified = True
-        self.UpdateWindowTitle()
+        """ Handling editor text modifed event """
+        if not self.is_document_modified:
+            self.is_document_modified = True
+            self.UpdateWindowTitle()
+
+        if self.live_json_validation_on:
+            self.OnValidateText(None, quiet=True)
+
 
     def UpdateWindowTitle(self):
         title = "Editor JSON"
