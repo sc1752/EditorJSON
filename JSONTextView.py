@@ -49,11 +49,12 @@ class JSONTextView(stc.StyledTextCtrl):
         default = "fore:#000000," + fonts
 
         self.StyleSetSpec(stc.STC_JSON_DEFAULT, default)
-        self.StyleSetSpec(stc.STC_JSON_PROPERTYNAME, tmpl % "#664f5e")
-        self.StyleSetSpec(stc.STC_JSON_STRING, tmpl % "#354652")
-        self.StyleSetSpec(stc.STC_JSON_NUMBER, tmpl % "#f0757a")
-        self.StyleSetSpec(stc.STC_JSON_KEYWORD, tmpl % "#a37acc")
-        self.StyleSetSpec(stc.STC_JSON_OPERATOR, tmpl % "#abaeb1")
+        self.StyleSetSpec(stc.STC_JSON_PROPERTYNAME, tmpl % "#bc5426")
+        self.StyleSetSpec(stc.STC_JSON_STRING, tmpl % "#3a7dc1")
+        self.StyleSetSpec(stc.STC_JSON_NUMBER, tmpl % "#6f9b31")
+        self.StyleSetSpec(stc.STC_JSON_KEYWORD, tmpl % "#9a62be")
+        self.StyleSetSpec(stc.STC_JSON_OPERATOR, tmpl % "#202020")
+        self.StyleSetSpec(stc.STC_JSON_URI, tmpl % "#d24189")
  
 
     def BindTextModifiedHandler(self, callback):

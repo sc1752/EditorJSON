@@ -149,7 +149,7 @@ class EditorJSON(wx.Frame):
 
         self.JSONData = data
 
-        self.SetSize(800, 600)
+        self.SetSize(720, 800)
         self.SetUpMenuBar()
 
         # Main sizer
@@ -157,7 +157,7 @@ class EditorJSON(wx.Frame):
         
         # Tree, Text Editor Area
         main_panel = wx.Panel(self)
-        self.tabs_panel = wx.Notebook(main_panel, size=(800,600), style=wx.NB_NOPAGETHEME)
+        self.tabs_panel = wx.Notebook(main_panel, size=(720,800), style=wx.NB_NOPAGETHEME)
 
         self.tree_tab = TabTreeView(self.tabs_panel)
         self.tree = self.tree_tab.tree
