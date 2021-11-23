@@ -32,7 +32,6 @@ class JSONTextView(stc.StyledTextCtrl):
         self.SetModEventMask(stc.STC_MOD_INSERTTEXT|stc.STC_MOD_DELETETEXT|stc.STC_PERFORMED_UNDO|
         stc.STC_PERFORMED_REDO|stc.STC_MULTILINEUNDOREDO|stc.STC_LASTSTEPINUNDOREDO)
 
-        self.Bind(wx.EVT_KEY_UP, self.OnKey)
         self.Bind(wx.EVT_FIND, self.OnFindNext)
         self.Bind(wx.EVT_FIND_NEXT, self.OnFindNext)
         
@@ -110,12 +109,7 @@ class JSONTextView(stc.StyledTextCtrl):
     def OnRedo(self, event):
         self.Redo()
 
-
-    def OnKey(self, event: wx.KeyEvent):
-        """ Handle Ctrl + F key event """
-        if event.ControlDown() and event.GetKeyCode() == 70: #F
-            self.search_replace_data = wx.FindReplaceData()
-            dlg = wx.FindReplaceDialog(self, self.search_replace_data, title="Find and Replace", style=0)
-            dlg.Show()
-
-
+    def OnSearch(self, event):
+        self.search_replace_data = wx.FindReplaceData()
+        dlg = wx.FindReplaceDialog(self, self.search_replace_data, title="Search", style=0)
+        dlg.Show()

@@ -39,6 +39,10 @@ class TabTextView(wx.Panel):
         self.btn_compact_format = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_compact_format.ToolTip = "Compact Formating"
 
+        bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_search.png"), type=wx.BITMAP_TYPE_PNG)
+        self.btn_search = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
+        self.btn_search.ToolTip = "Search"
+
         bitmap = wx.Bitmap(os.path.join(app_dir_root, "icon", "btn_validate.png"), type=wx.BITMAP_TYPE_PNG)
         self.btn_validate = wx.BitmapButton(self, bitmap=bitmap, size=(30,30))
         self.btn_validate.ToolTip = "Validate"
@@ -48,6 +52,7 @@ class TabTextView(wx.Panel):
         self.control_panel_sizer.Add(self.btn_pretty_format)
         self.control_panel_sizer.Add(self.btn_compact_format)
         self.control_panel_sizer.Add(self.btn_validate)
+        self.control_panel_sizer.Add(self.btn_search)
 
         self.editor = TextView.JSONTextView(self)
 
@@ -190,6 +195,7 @@ class EditorJSON(wx.Frame):
         self.editor_tab.btn_pretty_format.Bind(wx.EVT_BUTTON, self.OnPrettify)
         self.editor_tab.btn_compact_format.Bind(wx.EVT_BUTTON, self.OnCompactify)
         self.editor_tab.btn_validate.Bind(wx.EVT_BUTTON, self.OnValidateText)
+        self.editor_tab.btn_search.Bind(wx.EVT_BUTTON, self.editor.OnSearch)
 
         self.OnInit()
 
@@ -206,8 +212,8 @@ class EditorJSON(wx.Frame):
         file_item = wx.MenuItem(file_menu, wx.ID_OPEN, text="Open", helpString="Open existing JSON file")
         accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('O'), wx.ID_OPEN)
         file_item.SetAccel(accelerator_entry)
-        file_menu.AppendSeparator()
         file_menu.Append(file_item)
+        file_menu.AppendSeparator()
 
         file_item = wx.MenuItem(file_menu, wx.ID_SAVE, text = "Save", helpString="Save current JSON file")
         accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('S'), wx.ID_SAVE)
@@ -223,7 +229,29 @@ class EditorJSON(wx.Frame):
         file_item = wx.MenuItem(file_menu, wx.ID_EXIT, text = "Exit", helpString="Exit tool")
         file_menu.Append(file_item)
 
-        #If time allowed adding edit feature
+        self.edit_menu = wx.Menu()
+        edit_item = wx.MenuItem(file_menu, wx.ID_CUT, text="Cut", helpString="Cut")
+        accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('X'), wx.ID_CUT)
+        edit_item.SetAccel(accelerator_entry)
+        self.edit_menu.Append(edit_item)
+        
+        self.edit_menu.AppendSeparator()
+        edit_item = wx.MenuItem(file_menu, wx.ID_COPY, text="Copy", helpString="Copy")
+        accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('C'), wx.ID_COPY)
+        edit_item.SetAccel(accelerator_entry)
+        self.edit_menu.Append(edit_item)
+
+        edit_item = wx.MenuItem(file_menu, wx.ID_PASTE, text = "Paste", helpString="Paste")
+        accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('V'), wx.ID_PASTE)
+        edit_item.SetAccel(accelerator_entry)
+        self.edit_menu.Append(edit_item)
+
+        self.edit_menu.AppendSeparator()
+        edit_item = wx.MenuItem(file_menu, wx.ID_FIND, text = "Search", helpString="Search")
+        accelerator_entry = wx.AcceleratorEntry(wx.ACCEL_CTRL, ord('F'), wx.ID_FIND)
+        edit_item.SetAccel(accelerator_entry)
+        self.edit_menu.Append(edit_item)
+        
 
         help_menu = wx.Menu()
         help_item = wx.MenuItem(help_menu, wx.ID_HELP, text = "Help", helpString="About this application")
@@ -233,6 +261,7 @@ class EditorJSON(wx.Frame):
         help_menu.Append(help_item)
 
         self.menu.Append(file_menu, "File")
+        self.menu.Append(self.edit_menu, "Edit")
         self.menu.Append(help_menu, "Help")
         self.SetMenuBar(self.menu)
 
@@ -243,7 +272,7 @@ class EditorJSON(wx.Frame):
         self.OnNewFile()
 
     def ToggleEditingMode(self, event):
-        """ Toggle handler to be """
+        """ Toggle handler to be switch between Text and Tree mode"""
         try:
             if not self.tree_edit_mode:
                 self.JSONData.Text = self.editor.Text
@@ -271,7 +300,20 @@ class EditorJSON(wx.Frame):
         state only when EVT_NOTEBOOK_PAGE_CHANGGING was not vetoed.
         """
         self.tree_edit_mode = not self.tree_edit_mode
+        if self.tree_edit_mode:
+            self.ToggleEditMenu(False)
+        else:
+            self.ToggleEditMenu(True)
 
+
+    def ToggleEditMenu(self, enable : bool):
+        """Utility for enabling or greying out edit menu"""
+        if self.edit_menu:
+            self.edit_menu.Enable(wx.ID_CUT, enable)
+            self.edit_menu.Enable(wx.ID_COPY, enable)
+            self.edit_menu.Enable(wx.ID_PASTE, enable)
+            self.edit_menu.Enable(wx.ID_FIND, enable)
+        
 
     def JSONDecoderExceptionHandler(self, error: JSONDecodeError, msg : str):
         """
@@ -299,6 +341,14 @@ class EditorJSON(wx.Frame):
             self.OnHelp()
         elif id == wx.ID_ABOUT:
             self.OnAbout()
+        elif id == wx.ID_CUT:
+            self.editor.Cut()
+        elif id == wx.ID_COPY:
+            self.editor.Copy()
+        elif id == wx.ID_PASTE:
+            self.editor.Paste()
+        elif id == wx.ID_FIND:
+            self.editor.OnSearch(None)
         
     def OnNewFile(self):
         if self.is_document_modified:
@@ -381,7 +431,6 @@ class EditorJSON(wx.Frame):
                 path = dlg.GetPath()
                 try:
                     self.SaveFile(path)
-                    self.current_document_path = path
                 
                 except Exception:
                     dlg = wx.MessageDialog(self, "Unable to save file at %s ." % path)
@@ -399,6 +448,7 @@ class EditorJSON(wx.Frame):
 
                 file.write(self.JSONData.Text)
                 self.is_document_modified = False
+                self.current_document_path = path
                 self.UpdateWindowTitle()
 
         except Exception as error:
